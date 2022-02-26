@@ -9,12 +9,8 @@ let get_side fixity index =
 let noparens lookup inner outer index =
   let inner = lookup inner in
   let outer = lookup outer in
-  (* let inner = List.assoc inner table in *)
-  (* let outer = List.assoc outer table in *)
   match (inner, outer) with
   | Some (pi, fi), Some (po, fo) ->
-    (* let pi, fi = List.assoc inner table in *)
-    (* let po, fo = List.assoc outer table in *)
     if pi > po then true
     else
       let side = get_side fo index in

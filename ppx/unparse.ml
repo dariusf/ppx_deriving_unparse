@@ -21,6 +21,7 @@ let printer_for ~prefix typ =
   | "float" -> [%expr string_of_float]
   | _ -> Ast.pexp_ident ~loc { loc; txt = Lident (prefix ^ type_name) }
 
+(** Parenthesize a rendered expression *)
 let parenthesize ~loc e = [%expr Format.sprintf "(%s)" [%e e]]
 
 (** Given the ith argument, generates and applies its printer *)
@@ -182,28 +183,12 @@ let generate_printer ~loc name branches =
                        ~lhs:
                          (Ast.ppat_construct
                             { loc; txt = Lident constr.pcd_name.txt }
-                            (Some (Ast.ppat_tuple vars)))
+                            (match vars with
+                            | [] -> None
+                            | _ -> Some (Ast.ppat_tuple vars)))
                        ~rhs:right)
                    branches)));
     ]
-
-(* let generate_precedence_table ~loc name cstrs =
-   let (module Ast) = Ast_builder.make loc in
-   Ast.pstr_value Nonrecursive
-     [
-       Ast.value_binding
-         ~pat:(Ast.ppat_var { loc; txt = "table1_" ^ name })
-         ~expr:
-           (to_list_expr ~loc
-              (List.concat_map
-                 (fun c ->
-                   let spec = constructor_prec_spec ~loc c in
-                   match spec with
-                   | None -> []
-                   | Some (i, e) ->
-                     [[%expr [%e Ast.estring c.pcd_name.txt], ([%e i], [%e e])]])
-                 cstrs));
-     ] *)
 
 let generate_precedence_match ~loc name cstrs =
   let (module Ast) = Ast_builder.make loc in
@@ -236,60 +221,16 @@ let generate_type_decl t =
   (* TODO mutually recursive types *)
   let td = List.hd t in
   let { loc; txt = name } = td.ptype_name in
-  (* let *)
   match td.ptype_kind with
   | Ptype_variant cstrs ->
     [
-      (* generate_precedence_table ~loc name cstrs; *)
-      generate_precedence_match ~loc name cstrs;
-      generate_printer ~loc name cstrs;
+      generate_precedence_match ~loc name cstrs; generate_printer ~loc name cstrs;
     ]
   | _ -> failwith "nyi non variant ptype kind"
 
 let str_gen ~loc:_ ~path:_ (_rec, t) =
-  (* All nodes created using this Ast module will use [loc] by default *)
   let extra = generate_type_decl t in
-
-  (* let (module Ast) = Ast_builder.make loc in *)
-  (* we are silently dropping mutually recursive definitions to keep things
-     brief *)
-  (* let t = List.hd t in
-     let info_module =
-       let expr =
-         (* we are using this ppxlib function to generate a full name for the type
-            that includes the type variable *)
-         let name = core_type_of_type_declaration t |> string_of_core_type in
-         Ast.pmod_structure
-           [%str
-             let path = [%e Ast.estring path]
-             let name = [%e Ast.estring name]]
-       in
-       let name = module_name_of_type t in
-       Ast.module_binding ~name ~expr |> Ast.pstr_module
-     in *)
   extra
-(* :: [info_module] *)
-
-(* let str_gen ~loc ~path (_rec, t) =
-   (* All nodes created using this Ast module will use [loc] by default *)
-   let (module Ast) = Ast_builder.make loc in
-   (* we are silently dropping mutually recursive definitions to keep things
-      brief *)
-   let t = List.hd t in
-   let info_module =
-     let expr =
-       (* we are using this ppxlib function to generate a full name for the type
-          that includes the type variable *)
-       let name = core_type_of_type_declaration t |> string_of_core_type in
-       Ast.pmod_structure
-         [%str
-           let path = [%e Ast.estring path]
-           let name = [%e Ast.estring name]]
-     in
-     let name = module_name_of_type t in
-     Ast.module_binding ~name ~expr |> Ast.pstr_module
-   in
-   [info_module] *)
 
 let sig_gen ~loc ~path:_ (_rec, _t) =
   let (module Ast) = Ast_builder.make loc in
