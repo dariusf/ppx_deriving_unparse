@@ -90,7 +90,7 @@ let constructor_prec_spec ~loc constr =
     | _ -> failwith "form is not structure")
 
 (** Given a datatype and a list of constructor declarations, generates a printer function *)
-let generate_printer ~loc padding fn name branches =
+let generate_printer ~loc between fn name branches =
   let (module Ast) = Ast_builder.make loc in
   let prefix = fn ^ "_" in
   let fn_name = prefix ^ name in
@@ -172,7 +172,7 @@ let generate_printer ~loc padding fn name branches =
                            | _ ->
                              let segments = to_list_expr ~loc items in
                              [%expr
-                               String.concat [%e Ast.estring padding]
+                               String.concat [%e Ast.estring between]
                                  [%e segments]]
                          in
                          concat
@@ -216,7 +216,7 @@ let generate_precedence_match ~loc name cstrs =
              @ [Ast.case ~lhs:Ast.ppat_any ~guard:None ~rhs:[%expr None]]));
     ]
 
-let generate_type_decl padding fn t =
+let generate_type_decl between fn t =
   (* TODO mutually recursive types *)
   let td = List.hd t in
   let { loc; txt = name } = td.ptype_name in
@@ -224,15 +224,15 @@ let generate_type_decl padding fn t =
   | Ptype_variant cstrs ->
     [
       generate_precedence_match ~loc name cstrs;
-      generate_printer ~loc padding fn name cstrs;
+      generate_printer ~loc between fn name cstrs;
     ]
   | _ -> failwith "nyi non variant ptype kind"
 
-let str_gen ~loc:_ ~path:_ (_rec, t) padding fn =
-  let padding = Option.value ~default:"" padding in
+let str_gen ~loc:_ ~path:_ (_rec, t) between fn =
+  let between = Option.value ~default:"" between in
   let fn = Option.value ~default:"unparse" fn in
   try
-    let extra = generate_type_decl padding fn t in
+    let extra = generate_type_decl between fn t in
     extra
   with Failed (loc, s) -> error_str ~loc s
 
@@ -257,7 +257,7 @@ let () =
   let str_type_decl =
     Deriving.Generator.make
       Deriving.Args.(
-        empty +> arg "padding" (estring __) +> arg "fn" (estring __))
+        empty +> arg "between" (estring __) +> arg "fn" (estring __))
       str_gen
   in
   let sig_type_decl = Deriving.Generator.make_noarg sig_gen in
