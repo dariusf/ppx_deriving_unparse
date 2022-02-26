@@ -4,6 +4,12 @@ module Ast = Ast_builder.Default
 let ppx_name = "unparse"
 let table_name name = "table_" ^ name
 
+exception Failed of location * string
+
+let error ~loc fmt = Format.ksprintf (fun s -> raise (Failed (loc, s))) fmt
+let error_expr ~loc msg = [%expr [%ocaml.error [%e Ast.estring ~loc msg]]]
+let error_str ~loc msg = [%str [%ocaml.error [%e Ast.estring ~loc msg]]]
+
 let to_list_expr ~loc items =
   List.fold_right (fun c t -> [%expr [%e c] :: [%e t]]) items [%expr []]
 
@@ -39,7 +45,7 @@ let constructor_form constr =
       (fun a -> String.equal a.attr_name.txt "form")
       constr.pcd_attributes
   with
-  | None -> failwith "no default form yet"
+  | None -> error ~loc:constr.pcd_loc "no default form yet"
   | Some f ->
     (match f.attr_payload with
     | PStr [{ pstr_desc = Pstr_eval (e, _attrs); _ }] ->
@@ -224,8 +230,10 @@ let generate_type_decl padding fn t =
 let str_gen ~loc:_ ~path:_ (_rec, t) padding fn =
   let padding = Option.value ~default:"" padding in
   let fn = Option.value ~default:"unparse" fn in
-  let extra = generate_type_decl padding fn t in
-  extra
+  try
+    let extra = generate_type_decl padding fn t in
+    extra
+  with Failed (loc, s) -> error_str ~loc s
 
 let sig_gen ~loc ~path:_ (_rec, _t) =
   let (module Ast) = Ast_builder.make loc in
