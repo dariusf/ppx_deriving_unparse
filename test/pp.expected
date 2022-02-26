@@ -2,7 +2,11 @@ type expr =
   | Lit of int [@form _1]
   | Plus of expr * expr [@form _1 "+" _2][@prec (left, 3)]
   | Times of expr * expr [@form _1 "*" _2][@prec (left, 4)][@@deriving
-                                                             unparse]
+                                                             unparse
+                                                               {
+                                                                 padding =
+                                                                   " "
+                                                               }]
 include
   struct
     let _ = fun (_ : expr) -> ()
@@ -12,37 +16,37 @@ include
       | Times _ -> Some (4, (`Infix `Left))
       | _ -> None
     let _ = table_expr
-    let rec render_expr e =
+    let rec unparse_expr e =
       match e with
       | Lit v0 -> string_of_int v0
       | Plus (v0, v1) ->
           String.concat " "
             [if Deriving_unparse.noparens table_expr v0 e 0
-             then render_expr v0
-             else Format.sprintf "(%s)" (render_expr v0);
+             then unparse_expr v0
+             else Format.sprintf "(%s)" (unparse_expr v0);
             "+";
             if Deriving_unparse.noparens table_expr v1 e 1
-            then render_expr v1
-            else Format.sprintf "(%s)" (render_expr v1)]
+            then unparse_expr v1
+            else Format.sprintf "(%s)" (unparse_expr v1)]
       | Times (v0, v1) ->
           String.concat " "
             [if Deriving_unparse.noparens table_expr v0 e 0
-             then render_expr v0
-             else Format.sprintf "(%s)" (render_expr v0);
+             then unparse_expr v0
+             else Format.sprintf "(%s)" (unparse_expr v0);
             "*";
             if Deriving_unparse.noparens table_expr v1 e 1
-            then render_expr v1
-            else Format.sprintf "(%s)" (render_expr v1)]
-    let _ = render_expr
+            then unparse_expr v1
+            else Format.sprintf "(%s)" (unparse_expr v1)]
+    let _ = unparse_expr
   end[@@ocaml.doc "@inline"][@@merlin.hide ]
 let () =
   let ex1 = Times ((Plus ((Lit 1), (Lit 2))), (Lit 3)) in
-  print_endline (render_expr ex1)
+  print_endline (unparse_expr ex1)
 type protocol =
-  | Comm [@form "->"]
-  | Par of protocol * protocol [@form _1 "||" _2][@prec (left, 3)]
-  | Seq of protocol * protocol [@form _1 ";" _2][@prec (left, 4)][@@deriving
-                                                                   unparse]
+  | Comm [@form "send"]
+  | Par of protocol * protocol [@form _1 " || " _2][@prec (left, 3)]
+  | Seq of protocol * protocol [@form _1 "; " _2][@prec (left, 4)][@@deriving
+                                                                    unparse]
 include
   struct
     let _ = fun (_ : protocol) -> ()
@@ -52,29 +56,29 @@ include
       | Seq _ -> Some (4, (`Infix `Left))
       | _ -> None
     let _ = table_protocol
-    let rec render_protocol e =
+    let rec unparse_protocol e =
       match e with
-      | Comm -> "->"
+      | Comm -> "send"
       | Par (v0, v1) ->
-          String.concat " "
+          String.concat ""
             [if Deriving_unparse.noparens table_protocol v0 e 0
-             then render_protocol v0
-             else Format.sprintf "(%s)" (render_protocol v0);
-            "||";
+             then unparse_protocol v0
+             else Format.sprintf "(%s)" (unparse_protocol v0);
+            " || ";
             if Deriving_unparse.noparens table_protocol v1 e 1
-            then render_protocol v1
-            else Format.sprintf "(%s)" (render_protocol v1)]
+            then unparse_protocol v1
+            else Format.sprintf "(%s)" (unparse_protocol v1)]
       | Seq (v0, v1) ->
-          String.concat " "
+          String.concat ""
             [if Deriving_unparse.noparens table_protocol v0 e 0
-             then render_protocol v0
-             else Format.sprintf "(%s)" (render_protocol v0);
-            ";";
+             then unparse_protocol v0
+             else Format.sprintf "(%s)" (unparse_protocol v0);
+            "; ";
             if Deriving_unparse.noparens table_protocol v1 e 1
-            then render_protocol v1
-            else Format.sprintf "(%s)" (render_protocol v1)]
-    let _ = render_protocol
+            then unparse_protocol v1
+            else Format.sprintf "(%s)" (unparse_protocol v1)]
+    let _ = unparse_protocol
   end[@@ocaml.doc "@inline"][@@merlin.hide ]
 let () =
   let ex1 = Seq (Comm, (Par (Comm, Comm))) in
-  print_endline (render_protocol ex1)
+  print_endline (unparse_protocol ex1)

@@ -83,9 +83,9 @@ let constructor_prec_spec ~loc constr =
     | _ -> failwith "form is not structure")
 
 (** Given a datatype and a list of constructor declarations, generates a printer function *)
-let generate_printer ~loc name branches =
+let generate_printer ~loc padding fn name branches =
   let (module Ast) = Ast_builder.make loc in
-  let prefix = "render_" in
+  let prefix = fn ^ "_" in
   let fn_name = prefix ^ name in
   let var_name = "e" in
   (* TODO mutually recursive *)
@@ -154,16 +154,6 @@ let generate_printer ~loc name branches =
                                          [%e var] e [%e Ast.eint var_i]
                                      then [%e printed]
                                      else [%e parenthesize ~loc printed]]
-                                 (* let side =
-                                      match (fixity, i) with
-                                      | Prefix, _ -> Right
-                                      | Postfix, _ -> Left
-                                      | Infix _, 0 -> Left
-                                      | Infix _, 1 -> Right
-                                      | Infix _, _ -> Nonassoc
-                                    in
-                                    if noparens table inner op side then p else Format.sprintf "(%s)" p *)
-                                 (* var *)
                                | _ -> f)
                              form
                          in
@@ -174,7 +164,9 @@ let generate_printer ~loc name branches =
                            | [i] -> i
                            | _ ->
                              let segments = to_list_expr ~loc items in
-                             [%expr String.concat " " [%e segments]]
+                             [%expr
+                               String.concat [%e Ast.estring padding]
+                                 [%e segments]]
                          in
                          concat
                        | _ -> failwith "nyi non tuple rhs"
@@ -217,19 +209,22 @@ let generate_precedence_match ~loc name cstrs =
              @ [Ast.case ~lhs:Ast.ppat_any ~guard:None ~rhs:[%expr None]]));
     ]
 
-let generate_type_decl t =
+let generate_type_decl padding fn t =
   (* TODO mutually recursive types *)
   let td = List.hd t in
   let { loc; txt = name } = td.ptype_name in
   match td.ptype_kind with
   | Ptype_variant cstrs ->
     [
-      generate_precedence_match ~loc name cstrs; generate_printer ~loc name cstrs;
+      generate_precedence_match ~loc name cstrs;
+      generate_printer ~loc padding fn name cstrs;
     ]
   | _ -> failwith "nyi non variant ptype kind"
 
-let str_gen ~loc:_ ~path:_ (_rec, t) =
-  let extra = generate_type_decl t in
+let str_gen ~loc:_ ~path:_ (_rec, t) padding fn =
+  let padding = Option.value ~default:"" padding in
+  let fn = Option.value ~default:"unparse" fn in
+  let extra = generate_type_decl padding fn t in
   extra
 
 let sig_gen ~loc ~path:_ (_rec, _t) =
@@ -250,6 +245,11 @@ let sig_gen ~loc ~path:_ (_rec, _t) =
   []
 
 let () =
-  let str_type_decl = Deriving.Generator.make_noarg str_gen in
+  let str_type_decl =
+    Deriving.Generator.make
+      Deriving.Args.(
+        empty +> arg "padding" (estring __) +> arg "fn" (estring __))
+      str_gen
+  in
   let sig_type_decl = Deriving.Generator.make_noarg sig_gen in
   Deriving.add ppx_name ~str_type_decl ~sig_type_decl |> Deriving.ignore
