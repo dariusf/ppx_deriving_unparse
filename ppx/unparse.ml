@@ -1,6 +1,9 @@
 open Ppxlib
 module Ast = Ast_builder.Default
 
+let runtime_lib ~loc = [%expr Deriving_unparse]
+let ppx_name = "unparse"
+
 let to_list_expr ~loc items =
   List.fold_right (fun c t -> [%expr [%e c] :: [%e t]]) items [%expr []]
 
@@ -42,6 +45,37 @@ let constructor_form constr =
         | Pexp_apply (f, args) -> f :: List.map snd args
         | Pexp_ident _ | Pexp_constant _ -> [e]
         | _ -> failwith "not apply"
+      end
+    | _ -> failwith "form is not structure")
+
+(** Given a constructor, reads the precedence annotation as an expression *)
+let constructor_prec_spec ~loc constr =
+  match
+    List.find_opt (fun a -> a.attr_name.txt = "prec") constr.pcd_attributes
+  with
+  | None -> None
+  | Some p ->
+    (match p.attr_payload with
+    | PStr [{ pstr_desc = Pstr_eval (e, _attrs); _ }] ->
+      begin
+        match e.pexp_desc with
+        | Pexp_tuple
+            [
+              { pexp_desc = Pexp_ident { txt = Lident a; _ }; _ };
+              { pexp_desc = Pexp_constant (Pconst_integer (i, _)); _ };
+            ] ->
+          let i = Ast.eint ~loc (int_of_string i) in
+          let a =
+            match a with
+            | "left" -> [%expr `Infix `Left]
+            | "right" -> [%expr `Infix `Right]
+            | "nonassoc" -> [%expr `Infix `Nonassoc]
+            | "prefix" -> [%expr `Prefix]
+            | "postfix" -> [%expr `Postfix]
+            | _ -> failwith "unrecognised prec spec"
+          in
+          Some (i, a)
+        | _ -> failwith "not recognised prec spec"
       end
     | _ -> failwith "form is not structure")
 
@@ -121,13 +155,48 @@ let generate_printer ~loc name branches =
                    branches)));
     ]
 
+let generate_precedence_table ~loc name cstrs =
+  let (module Ast) = Ast_builder.make loc in
+  Ast.pstr_value Nonrecursive
+    [
+      Ast.value_binding
+        ~pat:(Ast.ppat_var { loc; txt = "table_" ^ name })
+        ~expr:
+          (to_list_expr ~loc
+             (List.concat_map
+                (fun c ->
+                  let spec = constructor_prec_spec ~loc c in
+                  match spec with
+                  | None -> []
+                  | Some (i, e) ->
+                    [[%expr [%e Ast.estring c.pcd_name.txt], ([%e i], [%e e])]])
+                cstrs));
+    ]
+
+(* let table =
+   [
+     ("!", (2, Postfix));
+     ("!!", (12, Postfix));
+     ("~", (3, Prefix));
+     ("`", (4, Prefix));
+     ("-", (3, Infix Left));
+     ("+", (3, Infix Left));
+     ("*", (4, Infix Left));
+     ("/", (4, Infix Left));
+     ("^", (4, Infix Right));
+     ("ite", (2, Infix Nonassoc));
+   ] *)
+
 let generate_type_decl t =
   (* TODO mutually recursive types *)
   let td = List.hd t in
   let { loc; txt = name } = td.ptype_name in
   (* let *)
   match td.ptype_kind with
-  | Ptype_variant cstrs -> generate_printer ~loc name cstrs
+  | Ptype_variant cstrs ->
+    [
+      generate_precedence_table ~loc name cstrs; generate_printer ~loc name cstrs;
+    ]
   | _ -> failwith "nyi non variant ptype kind"
 
 let str_gen ~loc:_ ~path:_ (_rec, t) =
@@ -151,7 +220,7 @@ let str_gen ~loc:_ ~path:_ (_rec, t) =
        let name = module_name_of_type t in
        Ast.module_binding ~name ~expr |> Ast.pstr_module
      in *)
-  [extra]
+  extra
 (* :: [info_module] *)
 
 (* let str_gen ~loc ~path (_rec, t) =
@@ -192,9 +261,7 @@ let sig_gen ~loc ~path:_ (_rec, _t) =
      Ast.module_declaration ~name ~type_ |> Ast.psig_module |> fun a -> [a] *)
   []
 
-let name = "unparse"
-
 let () =
   let str_type_decl = Deriving.Generator.make_noarg str_gen in
   let sig_type_decl = Deriving.Generator.make_noarg sig_gen in
-  Deriving.add name ~str_type_decl ~sig_type_decl |> Deriving.ignore
+  Deriving.add ppx_name ~str_type_decl ~sig_type_decl |> Deriving.ignore

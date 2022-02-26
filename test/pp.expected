@@ -6,6 +6,9 @@ type expr =
 include
   struct
     let _ = fun (_ : expr) -> ()
+    let table_expr =
+      [("Plus", (3, (`Infix `Left))); ("Times", (4, (`Infix `Left)))]
+    let _ = table_expr
     let rec render_expr e =
       match e with
       | Lit v0 -> string_of_int v0
