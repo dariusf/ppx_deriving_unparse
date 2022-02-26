@@ -1,2 +1,2 @@
 (1 + 2) * 3
-send; (send || send)
+a->b; (c->d || a->b)

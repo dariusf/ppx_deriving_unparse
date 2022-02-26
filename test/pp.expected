@@ -1,5 +1,5 @@
 type expr =
-  | Lit of int [@form _1]
+  | Num of int [@form _1]
   | Plus of expr * expr [@form _1 "+" _2][@prec (left, 3)]
   | Times of expr * expr [@form _1 "*" _2][@prec (left, 4)][@@deriving
                                                              unparse
@@ -18,7 +18,7 @@ include
     let _ = table_expr
     let rec unparse_expr e =
       match e with
-      | Lit v0 -> string_of_int v0
+      | Num v0 -> string_of_int v0
       | Plus (v0, v1) ->
           String.concat " "
             [if Deriving_unparse.noparens table_expr v0 e 0
@@ -40,10 +40,10 @@ include
     let _ = unparse_expr
   end[@@ocaml.doc "@inline"][@@merlin.hide ]
 let () =
-  let ex1 = Times ((Plus ((Lit 1), (Lit 2))), (Lit 3)) in
+  let ex1 = Times ((Plus ((Num 1), (Num 2))), (Num 3)) in
   print_endline (unparse_expr ex1)
 type protocol =
-  | Comm [@form "send"]
+  | Comm of string * string [@form _1 "->" _2]
   | Par of protocol * protocol [@form _1 " || " _2][@prec (left, 3)]
   | Seq of protocol * protocol [@form _1 "; " _2][@prec (left, 4)][@@deriving
                                                                     unparse]
@@ -58,7 +58,7 @@ include
     let _ = table_protocol
     let rec unparse_protocol e =
       match e with
-      | Comm -> "send"
+      | Comm (v0, v1) -> String.concat "" [Fun.id v0; "->"; Fun.id v1]
       | Par (v0, v1) ->
           String.concat ""
             [if Deriving_unparse.noparens table_protocol v0 e 0
@@ -80,5 +80,6 @@ include
     let _ = unparse_protocol
   end[@@ocaml.doc "@inline"][@@merlin.hide ]
 let () =
-  let ex1 = Seq (Comm, (Par (Comm, Comm))) in
+  let ex1 =
+    Seq ((Comm ("a", "b")), (Par ((Comm ("c", "d")), (Comm ("a", "b"))))) in
   print_endline (unparse_protocol ex1)

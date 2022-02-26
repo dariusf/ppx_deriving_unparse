@@ -23,6 +23,7 @@ let printer_for ~prefix typ =
   let loc = typ.ptyp_loc in
   match type_name with
   | "int" -> [%expr string_of_int]
+  | "string" -> [%expr Fun.id]
   | "bool" -> [%expr string_of_bool]
   | "float" -> [%expr string_of_float]
   | _ -> Ast.pexp_ident ~loc { loc; txt = Lident (prefix ^ type_name) }
