@@ -1,8 +1,8 @@
 open Ppxlib
 module Ast = Ast_builder.Default
 
-let runtime_lib ~loc = [%expr Deriving_unparse]
 let ppx_name = "unparse"
+let table_name name = "table_" ^ name
 
 let to_list_expr ~loc items =
   List.fold_right (fun c t -> [%expr [%e c] :: [%e t]]) items [%expr []]
@@ -21,13 +21,15 @@ let printer_for ~prefix typ =
   | "float" -> [%expr string_of_float]
   | _ -> Ast.pexp_ident ~loc { loc; txt = Lident (prefix ^ type_name) }
 
+let parenthesize ~loc e = [%expr Format.sprintf "(%s)" [%e e]]
+
 (** Given the ith argument, generates and applies its printer *)
 let typed_printed_expr ~prefix ~loc i typ =
   let fn = printer_for ~prefix typ in
   let arg =
     Ast.pexp_ident ~loc { loc; txt = Lident (Format.sprintf "v%d" i) }
   in
-  [%expr [%e fn] [%e arg]]
+  (arg, [%expr [%e fn] [%e arg]])
 
 (** Given a constructor, finds the form template in its attributes *)
 let constructor_form constr =
@@ -99,6 +101,9 @@ let generate_printer ~loc name branches =
                 (List.map
                    (fun constr ->
                      let form = constructor_form constr in
+                     let has_prec =
+                       Option.is_some (constructor_prec_spec ~loc constr)
+                     in
                      let vars =
                        match constr.pcd_args with
                        | Pcstr_tuple xs ->
@@ -112,11 +117,12 @@ let generate_printer ~loc name branches =
                        match constr.pcd_args with
                        | Pcstr_tuple xs ->
                          (* print each variable *)
-                         let vars =
+                         let vars, rendered =
                            List.mapi
                              (fun i typ ->
                                typed_printed_expr ~prefix ~loc i typ)
                              xs
+                           |> List.split
                          in
                          (* substitute variables into template *)
                          let items =
@@ -125,12 +131,38 @@ let generate_printer ~loc name branches =
                                match f.pexp_desc with
                                | Pexp_ident { txt = Lident i; _ }
                                  when i.[0] = '_' ->
-                                 let j =
+                                 let var_i =
                                    int_of_string
                                      (String.sub i 1 (String.length i - 1))
                                    - 1
                                  in
-                                 List.nth vars j
+                                 let var = List.nth vars var_i in
+                                 let printed = List.nth rendered var_i in
+                                 if not has_prec then printed
+                                 else
+                                   (* decide whether to parenthesize *)
+                                   [%expr
+                                     if
+                                       Deriving_unparse.noparens
+                                         [%e
+                                           Ast.pexp_ident
+                                             {
+                                               loc;
+                                               txt = Lident (table_name name);
+                                             }]
+                                         [%e var] e [%e Ast.eint var_i]
+                                     then [%e printed]
+                                     else [%e parenthesize ~loc printed]]
+                                 (* let side =
+                                      match (fixity, i) with
+                                      | Prefix, _ -> Right
+                                      | Postfix, _ -> Left
+                                      | Infix _, 0 -> Left
+                                      | Infix _, 1 -> Right
+                                      | Infix _, _ -> Nonassoc
+                                    in
+                                    if noparens table inner op side then p else Format.sprintf "(%s)" p *)
+                                 (* var *)
                                | _ -> f)
                              form
                          in
@@ -155,37 +187,50 @@ let generate_printer ~loc name branches =
                    branches)));
     ]
 
-let generate_precedence_table ~loc name cstrs =
+(* let generate_precedence_table ~loc name cstrs =
+   let (module Ast) = Ast_builder.make loc in
+   Ast.pstr_value Nonrecursive
+     [
+       Ast.value_binding
+         ~pat:(Ast.ppat_var { loc; txt = "table1_" ^ name })
+         ~expr:
+           (to_list_expr ~loc
+              (List.concat_map
+                 (fun c ->
+                   let spec = constructor_prec_spec ~loc c in
+                   match spec with
+                   | None -> []
+                   | Some (i, e) ->
+                     [[%expr [%e Ast.estring c.pcd_name.txt], ([%e i], [%e e])]])
+                 cstrs));
+     ] *)
+
+let generate_precedence_match ~loc name cstrs =
   let (module Ast) = Ast_builder.make loc in
   Ast.pstr_value Nonrecursive
     [
       Ast.value_binding
-        ~pat:(Ast.ppat_var { loc; txt = "table_" ^ name })
+        ~pat:(Ast.ppat_var { loc; txt = table_name name })
         ~expr:
-          (to_list_expr ~loc
+          (Ast.pexp_function
              (List.concat_map
                 (fun c ->
                   let spec = constructor_prec_spec ~loc c in
                   match spec with
                   | None -> []
                   | Some (i, e) ->
-                    [[%expr [%e Ast.estring c.pcd_name.txt], ([%e i], [%e e])]])
-                cstrs));
+                    [
+                      Ast.case
+                        ~lhs:
+                          (Ast.ppat_construct
+                             { loc; txt = Lident c.pcd_name.txt }
+                             (Some Ast.ppat_any))
+                        ~guard:None
+                        ~rhs:[%expr Some ([%e i], [%e e])];
+                    ])
+                cstrs
+             @ [Ast.case ~lhs:Ast.ppat_any ~guard:None ~rhs:[%expr None]]));
     ]
-
-(* let table =
-   [
-     ("!", (2, Postfix));
-     ("!!", (12, Postfix));
-     ("~", (3, Prefix));
-     ("`", (4, Prefix));
-     ("-", (3, Infix Left));
-     ("+", (3, Infix Left));
-     ("*", (4, Infix Left));
-     ("/", (4, Infix Left));
-     ("^", (4, Infix Right));
-     ("ite", (2, Infix Nonassoc));
-   ] *)
 
 let generate_type_decl t =
   (* TODO mutually recursive types *)
@@ -195,7 +240,9 @@ let generate_type_decl t =
   match td.ptype_kind with
   | Ptype_variant cstrs ->
     [
-      generate_precedence_table ~loc name cstrs; generate_printer ~loc name cstrs;
+      (* generate_precedence_table ~loc name cstrs; *)
+      generate_precedence_match ~loc name cstrs;
+      generate_printer ~loc name cstrs;
     ]
   | _ -> failwith "nyi non variant ptype kind"
 
