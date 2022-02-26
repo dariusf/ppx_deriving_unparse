@@ -1,0 +1,6 @@
+; a standalone driver
+
+(executable
+ (name pp)
+ (modules pp)
+ (libraries deriving_unparse ppxlib))

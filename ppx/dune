@@ -1,0 +1,17 @@
+; (library
+;  (public_name ppx_yarn)
+;  (kind ppx_rewriter)
+;  (libraries ppxlib)
+;  (preprocess
+;   (pps ppxlib.metaquot)))
+
+(library
+ (name deriving_unparse)
+ (libraries ppxlib)
+ (preprocess (pps ppxlib.metaquot))
+ (kind ppx_deriver))
+
+(env
+ (dev
+  (flags
+   (:standard -warn-error -A))))

@@ -1,0 +1,23 @@
+; generates ppx result
+
+(rule
+ (targets pp.result)
+ (deps test.ml)
+ (action
+  (run ./pp/pp.exe --impl %{deps} -o %{targets})))
+
+; checks ppx result, enables promotion
+
+(rule
+ (alias runtest)
+ (action
+  (diff pp.expected pp.result)))
+
+; compiles and executes the test file, then compares the result
+
+(test
+ (name test)
+ (modules test)
+ (libraries deriving_unparse ppx_deriving.std)
+ (preprocess
+  (pps deriving_unparse ppx_deriving.show)))

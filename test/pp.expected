@@ -1,0 +1,19 @@
+type expr =
+  | Lit of int [@form _1]
+  | Plus of expr * expr [@form _1 "+" _2][@prec (left, 3)]
+  | Times of expr * expr [@form _1 "*" _2][@prec (left, 4)][@@deriving
+                                                             unparse]
+include
+  struct
+    let _ = fun (_ : expr) -> ()
+    let rec render_expr e =
+      match e with
+      | Lit v0 -> string_of_int v0
+      | Plus (v0, v1) ->
+          String.concat " " [render_expr v0; "+"; render_expr v1]
+      | Times (v0, v1) ->
+          String.concat " " [render_expr v0; "*"; render_expr v1]
+    let _ = render_expr
+  end[@@ocaml.doc "@inline"][@@merlin.hide ]
+let () =
+  print_endline (render_expr (Times ((Plus ((Lit 1), (Lit 2))), (Lit 3))))
