@@ -4,7 +4,7 @@ type expr =
   | Times of expr * expr [@form _1 "*" _2][@prec (left, 4)][@@deriving
                                                              unparse
                                                                {
-                                                                 padding =
+                                                                 between =
                                                                    " "
                                                                }]
 include
@@ -42,44 +42,78 @@ include
 let () =
   let ex1 = Times ((Plus ((Num 1), (Num 2))), (Num 3)) in
   print_endline (unparse_expr ex1)
-type protocol =
-  | Comm of string * string [@form _1 "->" _2]
-  | Par of protocol * protocol [@form _1 " || " _2][@prec (left, 3)]
-  | Seq of protocol * protocol [@form _1 "; " _2][@prec (left, 4)][@@deriving
-                                                                    unparse]
+type party = ((string)[@form _1])[@@deriving unparse]
 include
   struct
-    let _ = fun (_ : protocol) -> ()
-    let table_protocol =
-      function
-      | Par _ -> Some (3, (`Infix `Left))
-      | Seq _ -> Some (4, (`Infix `Left))
-      | _ -> None
-    let _ = table_protocol
-    let rec unparse_protocol e =
+    let _ = fun (_ : party) -> ()
+    let unparse_party e = match e with | v0 -> Fun.id v0
+    let _ = unparse_party
+  end[@@ocaml.doc "@inline"][@@merlin.hide ]
+type channel = ((string)[@form _1])[@@deriving unparse]
+include
+  struct
+    let _ = fun (_ : channel) -> ()
+    let unparse_channel e = match e with | v0 -> Fun.id v0
+    let _ = unparse_channel
+  end[@@ocaml.doc "@inline"][@@merlin.hide ]
+type event = (((party * int))[@form _1 _2])[@@deriving unparse]
+include
+  struct
+    let _ = fun (_ : event) -> ()
+    let unparse_event e =
       match e with
-      | Comm (v0, v1) -> String.concat "" [Fun.id v0; "->"; Fun.id v1]
-      | Par (v0, v1) ->
+      | (v0, v1) -> String.concat "" [unparse_party v0; string_of_int v1]
+    let _ = unparse_event
+  end[@@ocaml.doc "@inline"][@@merlin.hide ]
+type global =
+  | GComm of party * int * party * channel [@form _1 "-" _2 "->" _3 ": " _4]
+  | GSeq of global * global [@form _1 "; " _2][@prec (left, 4)]
+  | GPar of global * global [@form _1 " * " _2][@prec (left, 3)]
+  | GEnd [@form "end"][@@deriving unparse]
+include
+  struct
+    let _ = fun (_ : global) -> ()
+    let table_global =
+      function
+      | GSeq _ -> Some (4, (`Infix `Left))
+      | GPar _ -> Some (3, (`Infix `Left))
+      | _ -> None
+    let _ = table_global
+    let rec unparse_global e =
+      match e with
+      | GComm (v0, v1, v2, v3) ->
           String.concat ""
-            [if Deriving_unparse.noparens table_protocol v0 e 0
-             then unparse_protocol v0
-             else Format.sprintf "(%s)" (unparse_protocol v0);
-            " || ";
-            if Deriving_unparse.noparens table_protocol v1 e 1
-            then unparse_protocol v1
-            else Format.sprintf "(%s)" (unparse_protocol v1)]
-      | Seq (v0, v1) ->
+            [unparse_party v0;
+            "-";
+            string_of_int v1;
+            "->";
+            unparse_party v2;
+            ": ";
+            unparse_channel v3]
+      | GSeq (v0, v1) ->
           String.concat ""
-            [if Deriving_unparse.noparens table_protocol v0 e 0
-             then unparse_protocol v0
-             else Format.sprintf "(%s)" (unparse_protocol v0);
+            [if Deriving_unparse.noparens table_global v0 e 0
+             then unparse_global v0
+             else Format.sprintf "(%s)" (unparse_global v0);
             "; ";
-            if Deriving_unparse.noparens table_protocol v1 e 1
-            then unparse_protocol v1
-            else Format.sprintf "(%s)" (unparse_protocol v1)]
-    let _ = unparse_protocol
+            if Deriving_unparse.noparens table_global v1 e 1
+            then unparse_global v1
+            else Format.sprintf "(%s)" (unparse_global v1)]
+      | GPar (v0, v1) ->
+          String.concat ""
+            [if Deriving_unparse.noparens table_global v0 e 0
+             then unparse_global v0
+             else Format.sprintf "(%s)" (unparse_global v0);
+            " * ";
+            if Deriving_unparse.noparens table_global v1 e 1
+            then unparse_global v1
+            else Format.sprintf "(%s)" (unparse_global v1)]
+      | GEnd -> "end"
+    let _ = unparse_global
   end[@@ocaml.doc "@inline"][@@merlin.hide ]
 let () =
   let ex1 =
-    Seq ((Comm ("a", "b")), (Par ((Comm ("c", "d")), (Comm ("a", "b"))))) in
-  print_endline (unparse_protocol ex1)
+    GSeq
+      ((GComm ("a", 1, "b", "c1")),
+        (GPar ((GComm ("a", 1, "b", "c1")), (GComm ("a", 1, "b", "c1"))))) in
+  print_endline (unparse_global ex1)

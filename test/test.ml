@@ -8,12 +8,38 @@ let () =
   let ex1 = Times (Plus (Num 1, Num 2), Num 3) in
   print_endline (unparse_expr ex1)
 
-type protocol =
-  | Comm of string * string [@form _1 "->" _2]
-  | Par of protocol * protocol [@form _1 " || " _2] [@prec left, 3]
-  | Seq of protocol * protocol [@form _1 "; " _2] [@prec left, 4]
+type party = (string[@form _1]) [@@deriving unparse]
+type channel = (string[@form _1]) [@@deriving unparse]
+type event = (party * int[@form _1 _2]) [@@deriving unparse]
+
+(* let render_event (p, n) = render_party p ^^ render_int n *)
+
+type global =
+  | GComm of party * int * party * channel [@form _1 "-" _2 "->" _3 ": " _4]
+  | GSeq of global * global [@form _1 "; " _2] [@prec left, 4]
+  | GPar of global * global [@form _1 " * " _2] [@prec left, 3]
+  | GEnd [@form "end"]
 [@@deriving unparse]
 
 let () =
-  let ex1 = Seq (Comm ("a", "b"), Par (Comm ("c", "d"), Comm ("a", "b"))) in
-  print_endline (unparse_protocol ex1)
+  let ex1 =
+    GSeq
+      ( GComm ("a", 1, "b", "c1"),
+        GPar (GComm ("a", 1, "b", "c1"), GComm ("a", 1, "b", "c1")) )
+  in
+  print_endline (unparse_global ex1)
+
+(* type local =
+     | LSend of event * channel
+     | LRecv of event * channel
+     | LSeq of local * local
+     | LPar of local * local
+     | LEnd
+
+   let () =
+     let ex1 =
+       GSeq
+         ( GComm ("a", 1, "b", "c1"),
+           GPar (GComm ("a", 1, "b", "c1"), GComm ("a", 1, "b", "c1")) )
+     in
+     print_endline (unparse_global ex1) *)

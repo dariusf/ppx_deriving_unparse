@@ -40,13 +40,9 @@ let typed_printed_expr ~prefix ~loc i typ =
   (arg, [%expr [%e fn] [%e arg]])
 
 (** Given a constructor, finds the form template in its attributes *)
-let constructor_form constr =
-  match
-    List.find_opt
-      (fun a -> String.equal a.attr_name.txt "form")
-      constr.pcd_attributes
-  with
-  | None -> error ~loc:constr.pcd_loc "no default form yet"
+let get_form ~loc attrs =
+  match List.find_opt (fun a -> String.equal a.attr_name.txt "form") attrs with
+  | None -> error ~loc "no default form yet"
   | Some f ->
     (match f.attr_payload with
     | PStr [{ pstr_desc = Pstr_eval (e, _attrs); _ }] ->
@@ -90,7 +86,7 @@ let constructor_prec_spec ~loc constr =
     | _ -> failwith "form is not structure")
 
 (** Given a datatype and a list of constructor declarations, generates a printer function *)
-let generate_printer ~loc between fn name branches =
+let generate_printer_variant ~loc between fn name branches =
   let (module Ast) = Ast_builder.make loc in
   let prefix = fn ^ "_" in
   let fn_name = prefix ^ name in
@@ -108,7 +104,9 @@ let generate_printer ~loc between fn name branches =
                 (Ast.pexp_ident { loc; txt = Lident var_name })
                 (List.map
                    (fun constr ->
-                     let form = constructor_form constr in
+                     let form =
+                       get_form ~loc:constr.pcd_loc constr.pcd_attributes
+                     in
                      let has_prec =
                        Option.is_some (constructor_prec_spec ~loc constr)
                      in
@@ -216,6 +214,78 @@ let generate_precedence_match ~loc name cstrs =
              @ [Ast.case ~lhs:Ast.ppat_any ~guard:None ~rhs:[%expr None]]));
     ]
 
+(** For various other kinds of types, like tuples, type aliases *)
+let generate_printer_type ~loc between fn name typ =
+  let (module Ast) = Ast_builder.make loc in
+  let prefix = fn ^ "_" in
+  let fn_name = prefix ^ name in
+  let var_name = "e" in
+  let rec_flag = Nonrecursive in
+  Ast.pstr_value rec_flag
+    [
+      Ast.value_binding
+        ~pat:(Ast.ppat_var { loc; txt = fn_name })
+        ~expr:
+          (Ast.pexp_fun Nolabel None
+             (Ast.ppat_var { loc; txt = var_name })
+             (Ast.pexp_match
+                (Ast.pexp_ident { loc; txt = Lident var_name })
+                (let types, left =
+                   match typ.ptyp_desc with
+                   | Ptyp_tuple elts ->
+                     let vars =
+                       List.mapi
+                         (fun i _ ->
+                           Ast.ppat_var { loc; txt = Format.sprintf "v%d" i })
+                         elts
+                     in
+                     (elts, Ast.ppat_tuple vars)
+                   | Ptyp_constr (_cons, _args) ->
+                     ([typ], Ast.ppat_var { loc; txt = "v0" })
+                   | _ -> failwith "unknown other kind of type"
+                 in
+                 let form = get_form ~loc:typ.ptyp_loc typ.ptyp_attributes in
+                 let right =
+                   (* print each variable *)
+                   let rendered =
+                     List.mapi
+                       (fun i typ -> typed_printed_expr ~prefix ~loc i typ)
+                       types
+                     |> List.map snd
+                   in
+                   (* substitute variables into template *)
+                   let items =
+                     List.map
+                       (fun f ->
+                         match f.pexp_desc with
+                         | Pexp_ident { txt = Lident i; _ } when i.[0] = '_' ->
+                           let var_i =
+                             int_of_string
+                               (String.sub i 1 (String.length i - 1))
+                             - 1
+                           in
+                           (* let var = List.nth vars var_i in *)
+                           let printed = List.nth rendered var_i in
+                           printed
+                           (* var *)
+                         | _ -> f)
+                       form
+                   in
+                   (* produce the body of each case split *)
+                   let concat =
+                     match items with
+                     | [] -> failwith "empty segments"
+                     | [i] -> i
+                     | _ ->
+                       let segments = to_list_expr ~loc items in
+                       [%expr
+                         String.concat [%e Ast.estring between] [%e segments]]
+                   in
+                   concat
+                 in
+                 [Ast.case ~guard:None ~lhs:left ~rhs:right])));
+    ]
+
 let generate_type_decl between fn t =
   (* TODO mutually recursive types *)
   let td = List.hd t in
@@ -224,9 +294,15 @@ let generate_type_decl between fn t =
   | Ptype_variant cstrs ->
     [
       generate_precedence_match ~loc name cstrs;
-      generate_printer ~loc between fn name cstrs;
+      generate_printer_variant ~loc between fn name cstrs;
     ]
-  | _ -> failwith "nyi non variant ptype kind"
+  | Ptype_abstract ->
+    begin
+      match td.ptype_manifest with
+      | None -> error ~loc "cannot generate for abstract type"
+      | Some typ -> [generate_printer_type ~loc between fn name typ]
+    end
+  | Ptype_record _ | Ptype_open -> failwith "nyi non variant ptype kind"
 
 let str_gen ~loc:_ ~path:_ (_rec, t) between fn =
   let between = Option.value ~default:"" between in
