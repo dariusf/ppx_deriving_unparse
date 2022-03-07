@@ -29,8 +29,16 @@ let () =
   in
   print_endline (unparse_global ex1)
 
+(* TODO mutual recursion, list, indentation, pprint *)
+
+(* type stmt =
+     | Send of int [@form "send" _1]
+     | Select of program list [@form _1 "; " _2] [@prec left, 4]
+
+   and program = stmt list [@@deriving unparse] *)
+
 (* type local =
-     | LSend of event * channel
+     | LSend o(c, e)f event * channel
      | LRecv of event * channel
      | LSeq of local * local
      | LPar of local * local
@@ -43,3 +51,5 @@ let () =
            GPar (GComm ("a", 1, "b", "c1"), GComm ("a", 1, "b", "c1")) )
      in
      print_endline (unparse_global ex1) *)
+
+(* latex? *)
