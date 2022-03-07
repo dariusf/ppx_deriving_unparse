@@ -3,4 +3,4 @@
 (executable
  (name pp)
  (modules pp)
- (libraries deriving_unparse ppxlib))
+ (libraries ppx_deriving_unparse ppxlib))

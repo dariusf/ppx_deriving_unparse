@@ -149,7 +149,7 @@ let generate_printer_variant ~loc between fn name branches =
                                    (* decide whether to parenthesize *)
                                    [%expr
                                      if
-                                       Deriving_unparse.noparens
+                                       Ppx_deriving_unparse.noparens
                                          [%e
                                            Ast.pexp_ident
                                              {

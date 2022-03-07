@@ -21,20 +21,20 @@ include
       | Num v0 -> string_of_int v0
       | Plus (v0, v1) ->
           String.concat " "
-            [if Deriving_unparse.noparens table_expr v0 e 0
+            [if Ppx_deriving_unparse.noparens table_expr v0 e 0
              then unparse_expr v0
              else Format.sprintf "(%s)" (unparse_expr v0);
             "+";
-            if Deriving_unparse.noparens table_expr v1 e 1
+            if Ppx_deriving_unparse.noparens table_expr v1 e 1
             then unparse_expr v1
             else Format.sprintf "(%s)" (unparse_expr v1)]
       | Times (v0, v1) ->
           String.concat " "
-            [if Deriving_unparse.noparens table_expr v0 e 0
+            [if Ppx_deriving_unparse.noparens table_expr v0 e 0
              then unparse_expr v0
              else Format.sprintf "(%s)" (unparse_expr v0);
             "*";
-            if Deriving_unparse.noparens table_expr v1 e 1
+            if Ppx_deriving_unparse.noparens table_expr v1 e 1
             then unparse_expr v1
             else Format.sprintf "(%s)" (unparse_expr v1)]
     let _ = unparse_expr
@@ -92,20 +92,20 @@ include
             unparse_channel v3]
       | GSeq (v0, v1) ->
           String.concat ""
-            [if Deriving_unparse.noparens table_global v0 e 0
+            [if Ppx_deriving_unparse.noparens table_global v0 e 0
              then unparse_global v0
              else Format.sprintf "(%s)" (unparse_global v0);
             "; ";
-            if Deriving_unparse.noparens table_global v1 e 1
+            if Ppx_deriving_unparse.noparens table_global v1 e 1
             then unparse_global v1
             else Format.sprintf "(%s)" (unparse_global v1)]
       | GPar (v0, v1) ->
           String.concat ""
-            [if Deriving_unparse.noparens table_global v0 e 0
+            [if Ppx_deriving_unparse.noparens table_global v0 e 0
              then unparse_global v0
              else Format.sprintf "(%s)" (unparse_global v0);
             " * ";
-            if Deriving_unparse.noparens table_global v1 e 1
+            if Ppx_deriving_unparse.noparens table_global v1 e 1
             then unparse_global v1
             else Format.sprintf "(%s)" (unparse_global v1)]
       | GEnd -> "end"

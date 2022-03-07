@@ -6,7 +6,7 @@
 ;   (pps ppxlib.metaquot)))
 
 (library
- (name deriving_unparse)
+ (name ppx_deriving_unparse)
  (libraries ppxlib)
  (preprocess (pps ppxlib.metaquot))
  (kind ppx_deriver))
