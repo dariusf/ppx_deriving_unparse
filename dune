@@ -1,35 +1,9 @@
 (library
  (name lib)
- (libraries
-;  compiler-libs.common
-  ; str
-  pprint
-  containers
-;   containers.unix
-  ; menhirLib
-  ; pratt
-  ; utop
-  ; ocamlgraph
-  )
+ (libraries pprint containers)
  (inline_tests)
  (preprocess
-  (pps
-;   ;  ppx_string
-   ppx_expect
-   ppx_deriving.show
-;    ppx_deriving.ord
-;    ppx_deriving.eq
-)
-  )
-   )
-
-; (menhir
-;  (modules parser)
-;  (flags --table)
-;  ;(flags --unused-tokens)
-;  )
-
-; (ocamllex lexer)
+  (pps ppx_expect ppx_deriving.show)))
 
 (env
  (dev

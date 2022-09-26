@@ -114,6 +114,8 @@ include
 let () =
   let ex1 =
     GSeq
-      ((GComm ("a", 1, "b", "c1")),
-        (GPar ((GComm ("a", 1, "b", "c1")), (GComm ("a", 1, "b", "c1"))))) in
+      ((GSeq
+          ((GComm ("a", 1, "b", "c1")),
+            (GPar ((GComm ("a", 1, "b", "c1")), (GComm ("a", 1, "b", "c1")))))),
+        GEnd) in
   print_endline (unparse_global ex1)

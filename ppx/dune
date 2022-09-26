@@ -1,14 +1,8 @@
-; (library
-;  (public_name ppx_yarn)
-;  (kind ppx_rewriter)
-;  (libraries ppxlib)
-;  (preprocess
-;   (pps ppxlib.metaquot)))
-
 (library
  (name ppx_deriving_unparse)
  (libraries ppxlib)
- (preprocess (pps ppxlib.metaquot))
+ (preprocess
+  (pps ppxlib.metaquot))
  (kind ppx_deriver))
 
 (env
