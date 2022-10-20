@@ -18,7 +18,9 @@ and a printer which parenthesizes expressions properly is generated!
 ```ocaml
 let () =
   let e = Times (Plus (Num 1, Num 2), Num 3) in
-  assert ((unparse_expr e) = "(1 + 2) * 3")
+  assert ((unparse_expr e) = "(1 + 2) * 3");
+  let e = Plus (Times (Num 1, Num 2), Num 3) in
+  assert ((unparse_expr e) = "1 * 2 + 3")
 ```
 
 ## Basics
