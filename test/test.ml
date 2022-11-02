@@ -28,3 +28,35 @@ let () =
         GEnd )
   in
   print_endline (unparse_global ex1)
+
+type term =
+  | Lambda of term [@form "λ." _1] [@prec left, 2]
+  | Var of int [@form _1]
+  | App of term * term [@form _1 " " _2] [@prec left, 3]
+[@@deriving unparse]
+
+let () =
+  let l = App (Lambda (Var 0), Lambda (Var 0)) in
+  print_endline (unparse_term l);
+  let l = Lambda (App (Var 0, Lambda (Var 0))) in
+  print_endline (unparse_term l)
+
+type re =
+  | Emp [@form "ε"]
+  | Bot [@form "⊥"]
+  | Label of string [@form _1]
+  | Concat of re * re [@form _1 "⋅" _2] [@prec left, 3]
+  | Star of re [@form _1 "✭"] [@prec prefix, 4]
+  | Inf of re [@form _1 "∞"] [@prec prefix, 4]
+  | Omega of re [@form _1 "ω"] [@prec prefix, 4]
+  | Or of re * re [@form _1 " ∨ " _2] [@prec left, 2]
+[@@deriving unparse]
+
+let () =
+  print_endline
+    (unparse_re
+       (Or
+          ( Omega (Label "a"),
+            Or
+              ( Inf (Concat (Bot, Label "c")),
+                Concat (Star (Concat (Emp, Label "b")), Star (Label "b")) ) )))
