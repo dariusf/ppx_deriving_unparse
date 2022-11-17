@@ -2,6 +2,7 @@
  (name ppx_deriving_unparse)
  (public_name ppx_deriving_unparse)
  (libraries ppxlib)
+ (ppx_runtime_libraries ppx_deriving_unparse_runtime)
  (preprocess
   (pps ppxlib.metaquot))
  (kind ppx_deriver))

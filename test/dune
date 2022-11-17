@@ -18,6 +18,5 @@
 (test
  (name test)
  (modules test)
- (libraries ppx_deriving_unparse ppx_deriving.std)
  (preprocess
   (pps ppx_deriving_unparse ppx_deriving.show)))

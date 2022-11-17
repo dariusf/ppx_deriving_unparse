@@ -21,20 +21,20 @@ include
       | Num v0 -> string_of_int v0
       | Plus (v0, v1) ->
           String.concat " "
-            [if Ppx_deriving_unparse.noparens table_expr v0 e 0
+            [if Ppx_deriving_unparse_runtime.noparens table_expr v0 e 0
              then unparse_expr v0
              else Format.sprintf "(%s)" (unparse_expr v0);
             "+";
-            if Ppx_deriving_unparse.noparens table_expr v1 e 1
+            if Ppx_deriving_unparse_runtime.noparens table_expr v1 e 1
             then unparse_expr v1
             else Format.sprintf "(%s)" (unparse_expr v1)]
       | Times (v0, v1) ->
           String.concat " "
-            [if Ppx_deriving_unparse.noparens table_expr v0 e 0
+            [if Ppx_deriving_unparse_runtime.noparens table_expr v0 e 0
              then unparse_expr v0
              else Format.sprintf "(%s)" (unparse_expr v0);
             "*";
-            if Ppx_deriving_unparse.noparens table_expr v1 e 1
+            if Ppx_deriving_unparse_runtime.noparens table_expr v1 e 1
             then unparse_expr v1
             else Format.sprintf "(%s)" (unparse_expr v1)]
     let _ = unparse_expr
@@ -92,20 +92,20 @@ include
             unparse_channel v3]
       | GSeq (v0, v1) ->
           String.concat ""
-            [if Ppx_deriving_unparse.noparens table_global v0 e 0
+            [if Ppx_deriving_unparse_runtime.noparens table_global v0 e 0
              then unparse_global v0
              else Format.sprintf "(%s)" (unparse_global v0);
             "; ";
-            if Ppx_deriving_unparse.noparens table_global v1 e 1
+            if Ppx_deriving_unparse_runtime.noparens table_global v1 e 1
             then unparse_global v1
             else Format.sprintf "(%s)" (unparse_global v1)]
       | GPar (v0, v1) ->
           String.concat ""
-            [if Ppx_deriving_unparse.noparens table_global v0 e 0
+            [if Ppx_deriving_unparse_runtime.noparens table_global v0 e 0
              then unparse_global v0
              else Format.sprintf "(%s)" (unparse_global v0);
             " * ";
-            if Ppx_deriving_unparse.noparens table_global v1 e 1
+            if Ppx_deriving_unparse_runtime.noparens table_global v1 e 1
             then unparse_global v1
             else Format.sprintf "(%s)" (unparse_global v1)]
       | GEnd -> "end"
@@ -137,17 +137,17 @@ include
       | Lambda v0 ->
           String.concat ""
             ["\206\187.";
-            if Ppx_deriving_unparse.noparens table_term v0 e 0
+            if Ppx_deriving_unparse_runtime.noparens table_term v0 e 0
             then unparse_term v0
             else Format.sprintf "(%s)" (unparse_term v0)]
       | Var v0 -> string_of_int v0
       | App (v0, v1) ->
           String.concat ""
-            [if Ppx_deriving_unparse.noparens table_term v0 e 0
+            [if Ppx_deriving_unparse_runtime.noparens table_term v0 e 0
              then unparse_term v0
              else Format.sprintf "(%s)" (unparse_term v0);
             " ";
-            if Ppx_deriving_unparse.noparens table_term v1 e 1
+            if Ppx_deriving_unparse_runtime.noparens table_term v1 e 1
             then unparse_term v1
             else Format.sprintf "(%s)" (unparse_term v1)]
     let _ = unparse_term
@@ -186,38 +186,38 @@ include
       | Label v0 -> Fun.id v0
       | Concat (v0, v1) ->
           String.concat ""
-            [if Ppx_deriving_unparse.noparens table_re v0 e 0
+            [if Ppx_deriving_unparse_runtime.noparens table_re v0 e 0
              then unparse_re v0
              else Format.sprintf "(%s)" (unparse_re v0);
             "\226\139\133";
-            if Ppx_deriving_unparse.noparens table_re v1 e 1
+            if Ppx_deriving_unparse_runtime.noparens table_re v1 e 1
             then unparse_re v1
             else Format.sprintf "(%s)" (unparse_re v1)]
       | Star v0 ->
           String.concat ""
-            [if Ppx_deriving_unparse.noparens table_re v0 e 0
+            [if Ppx_deriving_unparse_runtime.noparens table_re v0 e 0
              then unparse_re v0
              else Format.sprintf "(%s)" (unparse_re v0);
             "\226\156\173"]
       | Inf v0 ->
           String.concat ""
-            [if Ppx_deriving_unparse.noparens table_re v0 e 0
+            [if Ppx_deriving_unparse_runtime.noparens table_re v0 e 0
              then unparse_re v0
              else Format.sprintf "(%s)" (unparse_re v0);
             "\226\136\158"]
       | Omega v0 ->
           String.concat ""
-            [if Ppx_deriving_unparse.noparens table_re v0 e 0
+            [if Ppx_deriving_unparse_runtime.noparens table_re v0 e 0
              then unparse_re v0
              else Format.sprintf "(%s)" (unparse_re v0);
             "\207\137"]
       | Or (v0, v1) ->
           String.concat ""
-            [if Ppx_deriving_unparse.noparens table_re v0 e 0
+            [if Ppx_deriving_unparse_runtime.noparens table_re v0 e 0
              then unparse_re v0
              else Format.sprintf "(%s)" (unparse_re v0);
             " \226\136\168 ";
-            if Ppx_deriving_unparse.noparens table_re v1 e 1
+            if Ppx_deriving_unparse_runtime.noparens table_re v1 e 1
             then unparse_re v1
             else Format.sprintf "(%s)" (unparse_re v1)]
     let _ = unparse_re

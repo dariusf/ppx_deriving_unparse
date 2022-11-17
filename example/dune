@@ -1,6 +1,5 @@
 
 (executable
  (name example)
- (libraries ppx_deriving_unparse)
  (preprocess
   (pps ppx_deriving_unparse)))

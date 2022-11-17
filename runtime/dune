@@ -1,0 +1,7 @@
+(library
+ (public_name ppx_deriving_unparse_runtime))
+
+(env
+ (dev
+  (flags
+   (:standard -warn-error -A))))

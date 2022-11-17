@@ -14,3 +14,8 @@
  (name ppx_deriving_unparse)
  (synopsis "Derives unparsing functions")
  (description "Print syntax trees with precedence and associativity"))
+
+(package
+ (name ppx_deriving_unparse_runtime)
+ (synopsis "Derives unparsing functions")
+ (description "Print syntax trees with precedence and associativity"))
