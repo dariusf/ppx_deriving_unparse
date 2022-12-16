@@ -2,4 +2,8 @@
 a-1->b: c1; (a-1->b: c1 * a-1->b: c1); end
 (λ.0) (λ.0)
 λ.0 (λ.0)
+\newcommand*{\telambda}[1]{λ. #1}
+\newcommand*{\tevar}[1]{#1}
+\newcommand*{\teapp}[2]{#1   #2}
+\telambda{\teapp{\tevar{0}}{(\telambda{\tevar{0}})}}
 aω ∨ ((⊥⋅c)∞ ∨ (ε⋅b)✭⋅b✭)

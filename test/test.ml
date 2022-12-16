@@ -33,13 +33,15 @@ type term =
   | Lambda of term [@form "λ." _1] [@prec left, 2]
   | Var of int [@form _1]
   | App of term * term [@form _1 " " _2] [@prec left, 3]
-[@@deriving unparse]
+[@@deriving unparse ~latex]
 
 let () =
   let l = App (Lambda (Var 0), Lambda (Var 0)) in
   print_endline (unparse_term l);
   let l = Lambda (App (Var 0, Lambda (Var 0))) in
-  print_endline (unparse_term l)
+  print_endline (unparse_term l);
+  print_endline latex_commands_term;
+  print_endline (latex_print_term l)
 
 type re =
   | Emp [@form "ε"]
