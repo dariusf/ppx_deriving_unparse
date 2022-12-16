@@ -12,6 +12,13 @@ type config = {
 
 let template_var n = Format.asprintf "_%d" n
 
+let generate_case_split_fn loc cases =
+  let (module Ast) = Ast_builder.make loc in
+  let var_name = "e" in
+  Ast.pexp_fun Nolabel None
+    (Ast.ppat_var { loc; txt = var_name })
+    (Ast.pexp_match (Ast.pexp_ident { loc; txt = Lident var_name }) cases)
+
 exception Failed of location * string
 
 let error ~loc fmt = Format.ksprintf (fun s -> raise (Failed (loc, s))) fmt
@@ -157,62 +164,55 @@ let generate_printer_variant ~loc config type_name constr_decls =
   let (module Ast) = Ast_builder.make loc in
   let prefix = config.fn ^ "_" in
   let fn_name = prefix ^ type_name in
-  let var_name = "e" in
   (* TODO mutually recursive *)
   let rec_flag = Recursive in
   let unparse_fn =
+    let cases =
+      constr_decls
+      |> List.map (fun constr ->
+             (* each constructor maps to a branch in the case split *)
+             let form = get_form ~loc:constr.pcd_loc constr.pcd_attributes in
+             let has_prec =
+               Option.is_some (constructor_prec_spec ~loc constr)
+             in
+             let match_rhs =
+               match constr.pcd_args with
+               | Pcstr_tuple xs ->
+                 (* print each variable *)
+                 let vars, rendered =
+                   List.mapi
+                     (fun i typ -> typed_printed_expr ~prefix ~loc i typ)
+                     xs
+                   |> List.split
+                 in
+                 interpret_template_expr loc type_name
+                   (skip_adding_parens has_prec)
+                   vars rendered form config.between
+               | _ -> failwith "nyi non tuple rhs"
+             in
+             let pattern_vars =
+               match constr.pcd_args with
+               | Pcstr_tuple xs ->
+                 List.mapi
+                   (fun i _typ ->
+                     Ast.ppat_var { loc; txt = Format.sprintf "v%d" i })
+                   xs
+               | _ -> failwith "nyi non tuple lhs"
+             in
+             Ast.case ~guard:None
+               ~lhs:
+                 (Ast.ppat_construct
+                    { loc; txt = Lident constr.pcd_name.txt }
+                    (match pattern_vars with
+                    | [] -> None
+                    | _ -> Some (Ast.ppat_tuple pattern_vars)))
+               ~rhs:match_rhs)
+    in
     Ast.pstr_value rec_flag
       [
         Ast.value_binding
           ~pat:(Ast.ppat_var { loc; txt = fn_name })
-          ~expr:
-            (Ast.pexp_fun Nolabel None
-               (Ast.ppat_var { loc; txt = var_name })
-               (Ast.pexp_match
-                  (Ast.pexp_ident { loc; txt = Lident var_name })
-                  (constr_decls
-                  |> List.map (fun constr ->
-                         (* each constructor maps to a branch in the case split *)
-                         let form =
-                           get_form ~loc:constr.pcd_loc constr.pcd_attributes
-                         in
-                         let has_prec =
-                           Option.is_some (constructor_prec_spec ~loc constr)
-                         in
-                         let match_rhs =
-                           match constr.pcd_args with
-                           | Pcstr_tuple xs ->
-                             (* print each variable *)
-                             let vars, rendered =
-                               List.mapi
-                                 (fun i typ ->
-                                   typed_printed_expr ~prefix ~loc i typ)
-                                 xs
-                               |> List.split
-                             in
-                             interpret_template_expr loc type_name
-                               (skip_adding_parens has_prec)
-                               vars rendered form config.between
-                           | _ -> failwith "nyi non tuple rhs"
-                         in
-                         let pattern_vars =
-                           match constr.pcd_args with
-                           | Pcstr_tuple xs ->
-                             List.mapi
-                               (fun i _typ ->
-                                 Ast.ppat_var
-                                   { loc; txt = Format.sprintf "v%d" i })
-                               xs
-                           | _ -> failwith "nyi non tuple lhs"
-                         in
-                         Ast.case ~guard:None
-                           ~lhs:
-                             (Ast.ppat_construct
-                                { loc; txt = Lident constr.pcd_name.txt }
-                                (match pattern_vars with
-                                | [] -> None
-                                | _ -> Some (Ast.ppat_tuple pattern_vars)))
-                           ~rhs:match_rhs))));
+          ~expr:(generate_case_split_fn loc cases);
       ]
   in
   unparse_fn
@@ -257,13 +257,6 @@ let generate_latex_form loc name n =
       | _ -> [s "}{"; id (i + 1)])
       @ if i = n - 1 then [s "}"] else [])
   |> List.concat
-
-let generate_case_split_fn loc cases =
-  let (module Ast) = Ast_builder.make loc in
-  let var_name = "e" in
-  Ast.pexp_fun Nolabel None
-    (Ast.ppat_var { loc; txt = var_name })
-    (Ast.pexp_match (Ast.pexp_ident { loc; txt = Lident var_name }) cases)
 
 let generate_latex_variant ~loc type_name constr_decls =
   let (module Ast) = Ast_builder.make loc in
@@ -369,69 +362,59 @@ let generate_printer_type ~loc config name typ =
   let (module Ast) = Ast_builder.make loc in
   let prefix = config.fn ^ "_" in
   let fn_name = prefix ^ name in
-  let var_name = "e" in
   let rec_flag = Nonrecursive in
+  let cases =
+    let types, left =
+      match typ.ptyp_desc with
+      | Ptyp_tuple elts ->
+        let vars =
+          List.mapi
+            (fun i _ -> Ast.ppat_var { loc; txt = Format.sprintf "v%d" i })
+            elts
+        in
+        (elts, Ast.ppat_tuple vars)
+      | Ptyp_constr (_cons, _args) -> ([typ], Ast.ppat_var { loc; txt = "v0" })
+      | _ -> failwith "unknown other kind of type"
+    in
+    let form =
+      get_form ~loc:typ.ptyp_loc typ.ptyp_attributes |> parse_template
+    in
+    let right =
+      (* print each variable *)
+      let rendered =
+        List.mapi (fun i typ -> typed_printed_expr ~prefix ~loc i typ) types
+        |> List.map snd
+      in
+      (* substitute variables into template *)
+      let items =
+        form
+        |> List.map (fun f ->
+               match f with
+               | Var i ->
+                 (* let var = List.nth vars var_i in *)
+                 let printed = List.nth rendered i in
+                 printed
+                 (* var *)
+               | Constant s -> Ast.estring s)
+      in
+      (* produce the body of each case split *)
+      let concat =
+        match items with
+        | [] -> failwith "empty segments"
+        | [i] -> i
+        | _ ->
+          let segments = to_list_expr ~loc items in
+          [%expr String.concat [%e Ast.estring config.between] [%e segments]]
+      in
+      concat
+    in
+    [Ast.case ~guard:None ~lhs:left ~rhs:right]
+  in
   Ast.pstr_value rec_flag
     [
       Ast.value_binding
         ~pat:(Ast.ppat_var { loc; txt = fn_name })
-        ~expr:
-          (Ast.pexp_fun Nolabel None
-             (Ast.ppat_var { loc; txt = var_name })
-             (Ast.pexp_match
-                (Ast.pexp_ident { loc; txt = Lident var_name })
-                (let types, left =
-                   match typ.ptyp_desc with
-                   | Ptyp_tuple elts ->
-                     let vars =
-                       List.mapi
-                         (fun i _ ->
-                           Ast.ppat_var { loc; txt = Format.sprintf "v%d" i })
-                         elts
-                     in
-                     (elts, Ast.ppat_tuple vars)
-                   | Ptyp_constr (_cons, _args) ->
-                     ([typ], Ast.ppat_var { loc; txt = "v0" })
-                   | _ -> failwith "unknown other kind of type"
-                 in
-                 let form =
-                   get_form ~loc:typ.ptyp_loc typ.ptyp_attributes
-                   |> parse_template
-                 in
-                 let right =
-                   (* print each variable *)
-                   let rendered =
-                     List.mapi
-                       (fun i typ -> typed_printed_expr ~prefix ~loc i typ)
-                       types
-                     |> List.map snd
-                   in
-                   (* substitute variables into template *)
-                   let items =
-                     form
-                     |> List.map (fun f ->
-                            match f with
-                            | Var i ->
-                              (* let var = List.nth vars var_i in *)
-                              let printed = List.nth rendered i in
-                              printed
-                              (* var *)
-                            | Constant s -> Ast.estring s)
-                   in
-                   (* produce the body of each case split *)
-                   let concat =
-                     match items with
-                     | [] -> failwith "empty segments"
-                     | [i] -> i
-                     | _ ->
-                       let segments = to_list_expr ~loc items in
-                       [%expr
-                         String.concat [%e Ast.estring config.between]
-                           [%e segments]]
-                   in
-                   concat
-                 in
-                 [Ast.case ~guard:None ~lhs:left ~rhs:right])));
+        ~expr:(generate_case_split_fn loc cases);
     ]
 
 let generate_type_decl config t =
