@@ -26,17 +26,18 @@ let () =
 ## Basics
 
 `[@form <e1> <e2> ...]` goes on constructors, to specify their pretty-printed form.
-The payload is a sequence of expressions. String literals are printed as is. Variables starting with `_` refer to positional or record arguments.
+The payload is a sequence of expressions. String literals are printed as is. Variables starting with `_` refer to positional arguments.
 
 `[@prec <fixity>, <precedence>]` also goes on constructors.
 `fixity` is one of `left`, `right`, `nonassoc`, `prefix`, or `postfix`.
 `precedence` is a natural number.
-If a constructor is not annotated, its arguments will not be parenthesized (as it is presumably not an operator).
+The arguments of a constructor without a precedence annotation will not be parenthesized (as it is presumably not an operator).
 
 A number of options may be passed to the deriver.
 
-- the string `between` is inserted between every expression in `[@form ...]`
-- `fn` controls what the generated function is named
+- the string `between` is inserted between every expression in `[@form ...]` (default: `""`)
+- `fn` controls what the generated function is named (default: `"unparse"`)
+- the `latex` flag generates several functions for working with definitions in LaTeX. `[@form.latex ...]` may be used to provide an alternate form (default: disabled)
 
 ## Background
 
