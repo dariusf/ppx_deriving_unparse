@@ -55,19 +55,32 @@ let typed_printed_expr ~prefix ~loc i typ =
   (arg, [%expr [%e fn] [%e arg]])
 
 (** Given a constructor, finds the form template in its attributes *)
-let get_form ~loc attrs =
-  match List.find_opt (fun a -> String.equal a.attr_name.txt "form") attrs with
+let get_form ~loc ?(latex = false) attrs =
+  let really name =
+    List.find_opt (fun a -> String.equal a.attr_name.txt name) attrs
+    (* | None ->  *)
+    (* | Some f -> *)
+    |> Option.map (fun f ->
+           match f.attr_payload with
+           | PStr [{ pstr_desc = Pstr_eval (e, _attrs); _ }] ->
+             begin
+               match e.pexp_desc with
+               | Pexp_apply (f, args) -> f :: List.map snd args
+               | Pexp_ident _ | Pexp_constant _ -> [e]
+               | _ -> failwith "not apply"
+             end
+           | _ -> failwith "form is not structure")
+  in
+  match
+    match latex with
+    | false -> really "form"
+    | true ->
+      (match really "form.latex" with
+      | None -> really "form"
+      | Some f -> Some f)
+  with
+  | Some f -> f
   | None -> error ~loc "no default form yet"
-  | Some f ->
-    (match f.attr_payload with
-    | PStr [{ pstr_desc = Pstr_eval (e, _attrs); _ }] ->
-      begin
-        match e.pexp_desc with
-        | Pexp_apply (f, args) -> f :: List.map snd args
-        | Pexp_ident _ | Pexp_constant _ -> [e]
-        | _ -> failwith "not apply"
-      end
-    | _ -> failwith "form is not structure")
 
 (** Given a constructor, reads the precedence annotation as an expression *)
 let constructor_prec_spec ~loc constr =
@@ -261,13 +274,13 @@ let generate_latex_form loc name n =
 let generate_latex_variant ~loc type_name constr_decls =
   let (module Ast) = Ast_builder.make loc in
   let cmd_prefix = "latex_commands_" in
-  let prefix = "latex_print_" in
+  let prefix = "latex_unparse_" in
   let latex_cmds =
     let templates =
       constr_decls
       |> List.map (fun constr ->
              let form =
-               get_form ~loc:constr.pcd_loc constr.pcd_attributes
+               get_form ~latex:true ~loc:constr.pcd_loc constr.pcd_attributes
                |> parse_template
              in
              let templ =

@@ -1,4 +1,8 @@
 (1 + 2) * 3
+\newcommand*{\exnum}[1]{#1}
+\newcommand*{\explus}[2]{#1 + #2}
+\newcommand*{\extimes}[2]{#1 \times #2}
+\extimes{(\explus{\exnum{1}}{\exnum{2}})}{\exnum{3}}
 a-1->b: c1; (a-1->b: c1 * a-1->b: c1); end
 (λ.0) (λ.0)
 λ.0 (λ.0)

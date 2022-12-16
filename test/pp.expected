@@ -1,12 +1,14 @@
 type expr =
   | Num of int [@form _1]
   | Plus of expr * expr [@form _1 "+" _2][@prec (left, 3)]
-  | Times of expr * expr [@form _1 "*" _2][@prec (left, 4)][@@deriving
-                                                             unparse
-                                                               {
-                                                                 between =
-                                                                   " "
-                                                               }]
+  | Times of expr * expr
+  [@form _1 "*" _2][@form.latex _1 "\\times" _2][@prec (left, 4)][@@deriving
+                                                                   unparse
+                                                                    {
+                                                                    between =
+                                                                    " ";
+                                                                    latex
+                                                                    }]
 include
   struct
     let _ = fun (_ : expr) -> ()
@@ -38,10 +40,41 @@ include
             then unparse_expr v1
             else Format.sprintf "(%s)" (unparse_expr v1)]
     let _ = unparse_expr
+    let rec latex_unparse_expr e =
+      match e with
+      | Num v0 -> String.concat "" ["\\exnum{"; string_of_int v0; "}"]
+      | Plus (v0, v1) ->
+          String.concat ""
+            ["\\explus{";
+            if Ppx_deriving_unparse_runtime.noparens table_expr v0 e 0
+            then latex_unparse_expr v0
+            else Format.sprintf "(%s)" (latex_unparse_expr v0);
+            "}{";
+            if Ppx_deriving_unparse_runtime.noparens table_expr v1 e 1
+            then latex_unparse_expr v1
+            else Format.sprintf "(%s)" (latex_unparse_expr v1);
+            "}"]
+      | Times (v0, v1) ->
+          String.concat ""
+            ["\\extimes{";
+            if Ppx_deriving_unparse_runtime.noparens table_expr v0 e 0
+            then latex_unparse_expr v0
+            else Format.sprintf "(%s)" (latex_unparse_expr v0);
+            "}{";
+            if Ppx_deriving_unparse_runtime.noparens table_expr v1 e 1
+            then latex_unparse_expr v1
+            else Format.sprintf "(%s)" (latex_unparse_expr v1);
+            "}"]
+    let _ = latex_unparse_expr
+    let latex_commands_expr =
+      "\\newcommand*{\\exnum}[1]{#1}\n\\newcommand*{\\explus}[2]{#1 + #2}\n\\newcommand*{\\extimes}[2]{#1 \\times #2}"
+    let _ = latex_commands_expr
   end[@@ocaml.doc "@inline"][@@merlin.hide ]
 let () =
   let ex1 = Times ((Plus ((Num 1), (Num 2))), (Num 3)) in
-  print_endline (unparse_expr ex1)
+  print_endline (unparse_expr ex1);
+  print_endline latex_commands_expr;
+  print_endline (latex_unparse_expr ex1)
 type party = ((string)[@form _1])[@@deriving unparse]
 include
   struct
@@ -152,28 +185,28 @@ include
             then unparse_term v1
             else Format.sprintf "(%s)" (unparse_term v1)]
     let _ = unparse_term
-    let rec latex_print_term e =
+    let rec latex_unparse_term e =
       match e with
       | Lambda v0 ->
           String.concat ""
             ["\\telambda{";
             if Ppx_deriving_unparse_runtime.noparens table_term v0 e 0
-            then latex_print_term v0
-            else Format.sprintf "(%s)" (latex_print_term v0);
+            then latex_unparse_term v0
+            else Format.sprintf "(%s)" (latex_unparse_term v0);
             "}"]
       | Var v0 -> String.concat "" ["\\tevar{"; string_of_int v0; "}"]
       | App (v0, v1) ->
           String.concat ""
             ["\\teapp{";
             if Ppx_deriving_unparse_runtime.noparens table_term v0 e 0
-            then latex_print_term v0
-            else Format.sprintf "(%s)" (latex_print_term v0);
+            then latex_unparse_term v0
+            else Format.sprintf "(%s)" (latex_unparse_term v0);
             "}{";
             if Ppx_deriving_unparse_runtime.noparens table_term v1 e 1
-            then latex_print_term v1
-            else Format.sprintf "(%s)" (latex_print_term v1);
+            then latex_unparse_term v1
+            else Format.sprintf "(%s)" (latex_unparse_term v1);
             "}"]
-    let _ = latex_print_term
+    let _ = latex_unparse_term
     let latex_commands_term =
       "\\newcommand*{\\telambda}[1]{\206\187. #1}\n\\newcommand*{\\tevar}[1]{#1}\n\\newcommand*{\\teapp}[2]{#1   #2}"
     let _ = latex_commands_term
@@ -184,7 +217,7 @@ let () =
   (let l = Lambda (App ((Var 0), (Lambda (Var 0)))) in
    print_endline (unparse_term l);
    print_endline latex_commands_term;
-   print_endline (latex_print_term l))
+   print_endline (latex_unparse_term l))
 type re =
   | Emp [@form "\206\181"]
   | Bot [@form "\226\138\165"]

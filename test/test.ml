@@ -1,12 +1,15 @@
 type expr =
   | Num of int [@form _1]
   | Plus of expr * expr [@form _1 "+" _2] [@prec left, 3]
-  | Times of expr * expr [@form _1 "*" _2] [@prec left, 4]
-[@@deriving unparse { between = " " }]
+  | Times of expr * expr [@form _1 "*" _2] [@form.latex _1 "\\times" _2]
+      [@prec left, 4]
+[@@deriving unparse { between = " "; latex }]
 
 let () =
   let ex1 = Times (Plus (Num 1, Num 2), Num 3) in
-  print_endline (unparse_expr ex1)
+  print_endline (unparse_expr ex1);
+  print_endline latex_commands_expr;
+  print_endline (latex_unparse_expr ex1)
 
 type party = (string[@form _1]) [@@deriving unparse]
 type channel = (string[@form _1]) [@@deriving unparse]
@@ -41,7 +44,7 @@ let () =
   let l = Lambda (App (Var 0, Lambda (Var 0))) in
   print_endline (unparse_term l);
   print_endline latex_commands_term;
-  print_endline (latex_print_term l)
+  print_endline (latex_unparse_term l)
 
 type re =
   | Emp [@form "ε"]
